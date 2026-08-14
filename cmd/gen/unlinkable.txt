@@ -1,0 +1,11 @@
+# Classes that appear in a public header but have NO linkable symbol in the library: they compile clean,
+# then fail with "undefined reference" at the EXECUTABLE link (their ctor/operator isn't *_EXPORT'd, so the
+# symbol is hidden in the .so). cmd/gen drops these from Bound (un-emits the class; references planFail+drop).
+#
+# DERIVED FROM THE LINK, not the header. The export info is NOT reliably in the consumed header (on Linux
+# Q_*_EXPORT and a plain class are indistinguishable to clang — QModelIndex carries no visibility attr, same
+# as KAboutRelease), so a frontend heuristic is unsound. The link is the only stage that knows the truth.
+# Regenerate with: tools/derive_unlinkable.sh   (links each built package, parses the undefined refs).
+#
+# One class (qualified C++ name) per line; '#' starts a comment.
+KAboutRelease

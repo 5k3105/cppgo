@@ -1,0 +1,13 @@
+# build artifacts (rebuilt by the scripts)
+/cppir2
+/cppgogen
+/out/
+*.gch
+*.pch
+
+# machine-local notes and internal docs — not part of the public tree
+/local/
+
+# editor/tooling droppings
+.gograph/
+__pycache__/
