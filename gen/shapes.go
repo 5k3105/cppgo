@@ -152,7 +152,7 @@ func EmittedVerifyFile() string {
 	b.WriteString("// dispatcher's fn-ptr cast == the real shim signature, naming any mismatch.\n")
 	b.WriteString("#ifdef CPPGO_VERIFY\n")
 	for _, h := range shimVerifyHdrs {
-		fmt.Fprintf(&b, "#include \"%s\"\n", h)
+		fmt.Fprintf(&b, "#include %s\n", includeSpelling(h))
 	}
 	b.WriteString("\n")
 	for _, a := range shimVerify {

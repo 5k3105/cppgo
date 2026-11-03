@@ -61,6 +61,7 @@ clean output dir.
 | `CPPGO_DATAMODEL` | `lp64` (default) or `llp64` (Windows targets) — width of spelled `long`/`wchar_t` |
 | `CPPGO_UNITS` | number of aggregate C++ TUs per package (0 = per-class) |
 | `CPPGO_DROPLOG` | file path: log every declined binding with its reason + type signature |
+| `CPPGO_INCLUDE_ROOTS` | path list (as `-I` takes): a library header under one of these is `#include`d relative to it (`<QtCore/qobject.h>`), not by the absolute path it was parsed from, so the generated shims build on any machine passing the same `-I` |
 | `CPPGO_LIB_<PKG>` | purego runtime: path to `libshim_<pkg>.so` (default: bare soname via the loader) |
 | `CPPGO_W` | shim-compile parallelism for the toolexec driver / buildso (default 8/4) |
 | `GOTMPDIR` | build temp (defaults to `$HOME/.cache/gobuild-tmp` — keep it off a small tmpfs) |

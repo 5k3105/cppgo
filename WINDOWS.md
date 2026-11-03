@@ -72,6 +72,61 @@ harmless on unix, so there is ONE dispatch ABI for all platforms):
 wine note: do NOT point `XDG_RUNTIME_DIR` at a makeshift directory to silence wine's warning —
 it makes this wine build abort (`free(): invalid pointer`). The warning is harmless.
 
+## Single-file deployment (static Qt baked in — no Qt DLLs)
+
+`windows.sh` links `shim_qt.dll` against **dynamic** Qt (`-lQt6Widgets …`), so the Qt DLLs
+must sit beside the exe. For a **self-contained single `.exe`** (no Qt DLLs, no cgo), link
+the shim against a **static** Qt build and embed the DLL in the Go binary.
+[cppgoqt-win](https://github.com/5k3105/cppgoqt-win) is a working example: the generated Qt 6.11.1
+bindings with the scripts for each step below.
+
+1. **Static Qt for mingw, version-matched.** Build `qtbase` from source (same version the
+   bindings were generated against — a shim built vs 6.11.1 will not link against 6.5.x)
+   with a mingw toolchain file, `-DBUILD_SHARED_LIBS=OFF`, and `-DQT_HOST_PATH=<host Qt>`
+   (the host tools moc/rcc). Gives `libQt6{Core,Gui,Widgets}.a`, `libqwindows.a`, the style
+   plugin, and bundled png/freetype/harfbuzz/pcre/zlib `.a`.
+
+2. **Generate against its headers** with `CPPGO_INCLUDE_ROOTS=<static Qt>/include`, so the shims
+   include Qt headers relative to that folder and compile against any install of the same Qt.
+
+3. **Static plugin import.** A static Qt has no loadable plugins, so the platform/style
+   plugins must be imported or the app dies at startup with *"no Qt platform plugin"*.
+   Compile one TU into the shim:
+   ```cpp
+   #include <QtPlugin>
+   Q_IMPORT_PLUGIN(QWindowsIntegrationPlugin)
+   Q_IMPORT_PLUGIN(QModernWindowsStylePlugin)
+   ```
+
+4. **Static link, three gotchas.**
+   - The plugin/style `.a`'s pull a long dependency chain (`libQt6OpenGL.a`, `runtimeobject`,
+     WinRT, the rcc **`*_init.cpp.obj`** resource objects that live in `lib/objects-Release/…`,
+     …). Read the exact set from Qt's **`.prl`** files (`plugins/platforms/qwindows.prl`,
+     `plugins/styles/qmodernwindowsstyle.prl`) rather than guessing; wrap the Qt `.a`'s in
+     `-Wl,--start-group … --end-group`.
+   - **`-Wl,--exclude-libs,ALL`** is mandatory — otherwise mingw re-exports every static Qt
+     symbol and the DLL export table overflows (`ld: export ordinal too large: N`). With it,
+     only the shim's `extern "C"` functions export (what purego resolves).
+   - Add **`-static`** (with `-static-libgcc -static-libstdc++`) so `libwinpthread-1.dll` is
+     baked in too. `objdump -p shim_qt.dll | grep 'DLL Name'` should then list only Windows
+     system DLLs — no `Qt6*.dll`, no `libwinpthread`.
+
+5. **Embed + self-extract, before the loader runs.** The loader reads `$CPPGO_LIB_QT` during
+   the `gen_*.go` `init()` chain (`symaddr → _load → LoadLibrary`), so setting it from
+   `main()` is too late. Put a `//go:embed shim_qt.dll` + extract in an `init()` in a file
+   that sorts **before** `gen_*.go` (the go tool orders a package's files lexically — e.g.
+   `aaa_bootstrap_windows.go`). Extract to a per-user cache keyed by content hash
+   (`%LOCALAPPDATA%\cppgoqt\shim_qt-<hash>.dll`) and `os.Setenv("CPPGO_LIB_QT", …)`. Cache,
+   never delete (a loaded DLL is locked on Windows); the hash in the name means a new build
+   lands at a new path, so there is no stale-DLL mismatch. The exe then carries the DLL
+   wherever it is moved and re-extracts on a fresh machine.
+
+6. **Build the app** `CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -ldflags '-s -w
+   -H=windowsgui'` with `replace cppgoqt => <the llp64 windows bindings>`. Single `.exe`.
+
+HiDPI under wine: the app looks tiny at wine's default 96 DPI — set
+`HKCU\Control Panel\Desktop\LogPixels` (144 = 150%, 288 = 300%) or use `QT_SCALE_FACTOR`.
+
 ## Remaining
 
 1. **A confirmation pass on real Windows hardware** — everything above ran under wine, which

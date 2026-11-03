@@ -1,8 +1,8 @@
 package gen
 
 import (
-	"github.com/5k3105/cppgo/ir"
 	"fmt"
+	"github.com/5k3105/cppgo/ir"
 	"sort"
 	"strings"
 )
@@ -86,7 +86,7 @@ func emitCpp(cls, cn, header string, ms []method, sigs []signal, virts []vmethod
 	var b strings.Builder
 	inc := "<" + cls + ">"
 	if header != "" {
-		inc = "\"" + header + "\""
+		inc = includeSpelling(header)
 	}
 	// The common marshalling headers (containers, QString, QObject casts, the connection map) are
 	// force-included once via the precompiled cppgo_pch.h (set in the build CXXFLAGS), so the shim emits
@@ -95,7 +95,7 @@ func emitCpp(cls, cn, header string, ms []method, sigs []signal, virts []vmethod
 	// ...plus exactly the headers of the types this shim references (bases, params, returns), so cross-
 	// type uses (e.g. QVariant's shim touching QModelIndex) see complete types — and nothing more.
 	for _, h := range refHeaders {
-		fmt.Fprintf(&b, "#include \"%s\"\n", h)
+		fmt.Fprintf(&b, "#include %s\n", includeSpelling(h))
 	}
 	fmt.Fprintf(&b, "#include \"gen_%s.h\"\n", strings.ToLower(cn))
 	if len(sigs) > 0 {
@@ -964,7 +964,7 @@ func EmitFunctions(funcs []ir.Func, pkg string, rv Resolver) (goSrc, hSrc, cppSr
 
 	var c strings.Builder
 	for _, hh := range hdrs {
-		fmt.Fprintf(&c, "#include \"%s\"\n", hh)
+		fmt.Fprintf(&c, "#include %s\n", includeSpelling(hh))
 	}
 	c.WriteString("#include \"gen_functions.h\"\n\nextern \"C\" {\n\n")
 	c.WriteString(cb.String())
